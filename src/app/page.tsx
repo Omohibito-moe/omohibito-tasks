@@ -1,14 +1,8 @@
-export const dynamic = 'force-dynamic'
+'use client'
 
-import { getProgressByBusiness, getAllTasks, getCriteria, isSeeded } from '@/lib/db'
-import { getDb } from '@/lib/db'
-import { runSeed } from '@/lib/seed-data'
+import { useState, useEffect } from 'react'
 import { BUSINESS_COLORS, BUSINESSES, STATUS_COLORS } from '@/lib/types'
-import type { Task } from '@/lib/types'
-
-function ensureSeeded() {
-  if (!isSeeded()) runSeed(getDb())
-}
+import type { Task, Criterion } from '@/lib/types'
 
 function ProgressCard({ business, total, done }: { business: string; total: number; done: number }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
@@ -46,7 +40,7 @@ function TaskRow({ task }: { task: Task }) {
   )
 }
 
-function CriterionRow({ criterion }: { criterion: { deadline: string; category: string; description: string } }) {
+function CriterionRow({ criterion }: { criterion: Criterion }) {
   return (
     <div className="flex items-start gap-3 py-2">
       <div className="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(201,169,110,0.15)', color: '#C9A96E' }}>
@@ -61,54 +55,52 @@ function CriterionRow({ criterion }: { criterion: { deadline: string; category: 
 }
 
 export default function DashboardPage() {
-  ensureSeeded()
+  const [progress, setProgress] = useState<{ business: string; total: number; done: number }[]>([])
+  const [weeklyTasks, setWeeklyTasks] = useState<Task[]>([])
+  const [inProgressTasks, setInProgressTasks] = useState<Task[]>([])
+  const [criteria, setCriteria] = useState<Criterion[]>([])
+  const [stats, setStats] = useState({ total: 0, done: 0, inProgress: 0 })
 
-  const progress = getProgressByBusiness()
-  const weeklyTasks = getAllTasks({ level: '小タスク', status: '未着手' }).slice(0, 15)
-  const inProgressTasks = getAllTasks({ status: '進行中' }).slice(0, 8)
-  const allCriteria = getCriteria()
-
-  // Stats
-  const allTasks = getAllTasks({ level: '小タスク' })
-  const total = allTasks.length
-  const done = allTasks.filter(t => t.status === '完了').length
-  const inProgress = allTasks.filter(t => t.status === '進行中').length
+  useEffect(() => {
+    fetch('/api/progress').then(r => r.json()).then(setProgress)
+    fetch('/api/criteria').then(r => r.json()).then((data: Criterion[]) => setCriteria(data.slice(0, 12)))
+    fetch('/api/tasks?level=小タスク&status=未着手').then(r => r.json()).then((data: Task[]) => setWeeklyTasks(data.slice(0, 15)))
+    fetch('/api/tasks?status=進行中').then(r => r.json()).then((data: Task[]) => setInProgressTasks(data.slice(0, 8)))
+    fetch('/api/tasks?level=小タスク').then(r => r.json()).then((data: Task[]) => {
+      setStats({
+        total: data.length,
+        done: data.filter(t => t.status === '完了').length,
+        inProgress: data.filter(t => t.status === '進行中').length,
+      })
+    })
+  }, [])
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold wa-border pl-3" style={{ color: 'var(--text)' }}>
-            ダッシュボード
-          </h1>
-          <p className="text-sm mt-0.5 pl-3" style={{ color: 'var(--text-muted)' }}>
-            想ひ人 Year 1 — 2026年4月〜2027年3月
-          </p>
+          <h1 className="text-2xl font-bold wa-border pl-3" style={{ color: 'var(--text)' }}>ダッシュボード</h1>
+          <p className="text-sm mt-0.5 pl-3" style={{ color: 'var(--text-muted)' }}>想ひ人 Year 1 — 2026年4月〜2027年3月</p>
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         <div className="card p-4 text-center">
-          <p className="text-3xl font-bold" style={{ color: '#1F4E79' }}>{total}</p>
+          <p className="text-3xl font-bold" style={{ color: '#1F4E79' }}>{stats.total}</p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>総タスク数</p>
         </div>
         <div className="card p-4 text-center">
-          <p className="text-3xl font-bold" style={{ color: '#6B8E7B' }}>{done}</p>
+          <p className="text-3xl font-bold" style={{ color: '#6B8E7B' }}>{stats.done}</p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>完了</p>
         </div>
         <div className="card p-4 text-center">
-          <p className="text-3xl font-bold" style={{ color: '#E8945A' }}>{inProgress}</p>
+          <p className="text-3xl font-bold" style={{ color: '#E8945A' }}>{stats.inProgress}</p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>進行中</p>
         </div>
       </div>
 
-      {/* Progress by business */}
       <div>
-        <h2 className="text-sm font-semibold mb-3 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
-          事業別進捗
-        </h2>
+        <h2 className="text-sm font-semibold mb-3 uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>事業別進捗</h2>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {BUSINESSES.map(biz => {
             const p = progress.find(p => p.business === biz) ?? { total: 0, done: 0 }
@@ -118,30 +110,19 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Weekly tasks */}
         <div className="lg:col-span-2 card p-5">
-          <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text)' }}>
-            直近のタスク（未着手）
-          </h2>
-          {weeklyTasks.length === 0 ? (
-            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>タスクがありません</p>
-          ) : (
-            weeklyTasks.map(task => <TaskRow key={task.id} task={task} />)
-          )}
+          <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text)' }}>直近のタスク（未着手）</h2>
+          {weeklyTasks.length === 0
+            ? <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>読み込み中...</p>
+            : weeklyTasks.map(task => <TaskRow key={task.id} task={task} />)
+          }
         </div>
-
-        {/* Criteria */}
         <div className="card p-5">
-          <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text)' }}>
-            Year 1 判定基準
-          </h2>
-          {allCriteria.slice(0, 12).map(c => (
-            <CriterionRow key={c.id} criterion={c} />
-          ))}
+          <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text)' }}>Year 1 判定基準</h2>
+          {criteria.map(c => <CriterionRow key={c.id} criterion={c} />)}
         </div>
       </div>
 
-      {/* In Progress */}
       {inProgressTasks.length > 0 && (
         <div className="card p-5">
           <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text)' }}>進行中</h2>
