@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getProgressByBusiness, getAllTasks, getCriteria, isSeeded } from '@/lib/db'
 import { getDb } from '@/lib/db'
 import { runSeed } from '@/lib/seed-data'

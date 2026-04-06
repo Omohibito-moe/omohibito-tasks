@@ -4,6 +4,7 @@ import { runSeed } from '@/lib/seed-data'
 import { getDb } from '@/lib/db'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 function ensureSeeded() {
   if (!isSeeded()) {

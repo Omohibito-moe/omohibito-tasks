@@ -2,7 +2,14 @@ import Database from 'better-sqlite3'
 import path from 'path'
 import type { Task, TimelineItem, Criterion, Status } from './types'
 
-const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), 'omohibito.db')
+function getDbPath(): string {
+  const p = process.env.DB_PATH ?? path.join(process.cwd(), 'omohibito.db')
+  // Ensure parent directory exists
+  const fs = require('fs') as typeof import('fs')
+  const dir = path.dirname(p)
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  return p
+}
 
 declare global {
   // eslint-disable-next-line no-var
@@ -11,7 +18,7 @@ declare global {
 
 function getDb(): Database.Database {
   if (!global.__db) {
-    global.__db = new Database(DB_PATH)
+    global.__db = new Database(getDbPath())
     global.__db.pragma('journal_mode = WAL')
     global.__db.pragma('foreign_keys = ON')
     initSchema(global.__db)
