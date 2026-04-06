@@ -1,0 +1,149 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #F5F0EB;
+  --bg-card: #FFFFFF;
+  --bg-sidebar: #1F4E79;
+  --text: #1a1a1a;
+  --text-muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #C9A96E;
+}
+
+.dark {
+  --bg: #0F1E2E;
+  --bg-card: #162436;
+  --bg-sidebar: #0A1520;
+  --text: #F5F0EB;
+  --text-muted: #9ca3af;
+  --border: #1e3a52;
+  --accent: #C9A96E;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans JP', sans-serif;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #9ca3af;
+  border-radius: 3px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #374151;
+}
+
+/* Custom utility classes */
+.card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  border-radius: 0.5rem;
+  color: rgba(245, 240, 235, 0.7);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.15s, color 0.15s;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.sidebar-item:hover {
+  background-color: rgba(255,255,255,0.1);
+  color: #F5F0EB;
+}
+
+.sidebar-item.active {
+  background-color: rgba(201, 169, 110, 0.2);
+  color: #C9A96E;
+}
+
+/* Progress bar */
+.progress-bar {
+  height: 6px;
+  border-radius: 9999px;
+  background-color: var(--border);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.5s ease;
+}
+
+/* Kanban columns */
+.kanban-col {
+  min-height: 300px;
+  flex: 1;
+  min-width: 280px;
+  max-width: 360px;
+}
+
+/* Status badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Business badge */
+.business-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* Gantt cell */
+.gantt-cell-filled {
+  border-radius: 4px;
+  height: 22px;
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(2px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Japanese wa-modern decorative border */
+.wa-border {
+  border-left: 3px solid #C9A96E;
+}
