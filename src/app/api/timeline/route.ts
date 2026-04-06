@@ -5,6 +5,10 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const items = getTimelineItems()
-  return NextResponse.json(items)
+  try {
+    const items = getTimelineItems()
+    return NextResponse.json(items)
+  } catch {
+    return NextResponse.json([])
+  }
 }

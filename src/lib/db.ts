@@ -17,6 +17,9 @@ declare global {
 }
 
 function getDb(): Database.Database {
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    throw new Error('DB not available during build')
+  }
   if (!global.__db) {
     global.__db = new Database(getDbPath())
     global.__db.pragma('journal_mode = WAL')

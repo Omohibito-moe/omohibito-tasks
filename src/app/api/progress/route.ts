@@ -5,6 +5,10 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const progress = getProgressByBusiness()
-  return NextResponse.json(progress)
+  try {
+    const progress = getProgressByBusiness()
+    return NextResponse.json(progress)
+  } catch {
+    return NextResponse.json([])
+  }
 }
