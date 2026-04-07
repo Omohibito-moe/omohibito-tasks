@@ -16,6 +16,8 @@ import { CSS } from '@dnd-kit/utilities'
 import type { Task, Status, Business } from '@/lib/types'
 import { BUSINESSES, STATUSES, BUSINESS_COLORS, STATUS_COLORS } from '@/lib/types'
 import { TaskModal } from '@/components/TaskModal'
+import { CompleteToast } from '@/components/CompleteToast'
+import { useConfetti } from '@/hooks/useConfetti'
 
 type ViewMode = 'kanban' | 'tree' | 'today'
 type SortKey = 'default' | 'deadline' | 'level'
@@ -269,6 +271,8 @@ export default function KanbanPage() {
   const [draggingId, setDraggingId] = useState<number | null>(null)
   const [modalTask, setModalTask] = useState<Partial<Task> | null>(null)
   const [addStatus, setAddStatus] = useState<Status>('未着手')
+  const [toast, setToast] = useState<string | null>(null)
+  const fireConfetti = useConfetti()
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
@@ -314,6 +318,10 @@ export default function KanbanPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: targetStatus }),
     })
+    if (targetStatus === '完了') {
+      fireConfetti()
+      setToast('頑張ったね！タスク完了！')
+    }
   }
 
   const handleSave = async (data: Partial<Task>) => {
@@ -329,6 +337,10 @@ export default function KanbanPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...data, status: addStatus, level: '小タスク' }),
       })
+    }
+    if (data.status === '完了' && (!modalTask || (modalTask as Task).status !== '完了')) {
+      fireConfetti()
+      setToast('頑張ったね！タスク完了！')
     }
     setModalTask(null)
     fetchTasks()
@@ -467,6 +479,8 @@ export default function KanbanPage() {
       {viewMode === 'today' && (
         <TodayView onEdit={t => setModalTask(t)} onStatusChange={handleStatusChange} />
       )}
+
+      {toast && <CompleteToast message={toast} onDone={() => setToast(null)} />}
 
       {modalTask && (
         <TaskModal
