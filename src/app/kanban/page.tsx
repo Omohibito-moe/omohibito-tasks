@@ -254,9 +254,9 @@ function TodayView({ onEdit, onStatusChange }: {
 // ───────────────────────────────────────────────
 const COLUMNS: { status: Status; label: string; color: string }[] = [
   { status: '未着手', label: '未着手', color: '#6B7280' },
+  { status: '今日やる', label: '今日やる', color: '#F97316' },
   { status: '進行中', label: '進行中', color: '#3B82F6' },
   { status: '完了', label: '完了', color: '#10B981' },
-  { status: '保留', label: '保留', color: '#F59E0B' },
 ]
 
 export default function KanbanPage() {

@@ -25,6 +25,7 @@ function getDb(): Database.Database {
     global.__db.pragma('journal_mode = WAL')
     global.__db.pragma('foreign_keys = ON')
     initSchema(global.__db)
+    runMigrations(global.__db)
   }
   return global.__db
 }
@@ -35,12 +36,12 @@ function initSchema(db: Database.Database) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       business TEXT NOT NULL,
       level TEXT NOT NULL,
-      parent_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+      parent_id INTEGER,
       name TEXT NOT NULL,
       assignee TEXT,
       deadline TEXT,
       notes TEXT,
-      status TEXT DEFAULT '未着手' CHECK (status IN ('未着手', '進行中', '完了', '保留')),
+      status TEXT DEFAULT '未着手',
       sort_order INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       updated_at TEXT DEFAULT (datetime('now', 'localtime'))
@@ -62,6 +63,40 @@ function initSchema(db: Database.Database) {
       description TEXT
     );
   `)
+}
+
+function runMigrations(db: Database.Database) {
+  // 「保留」→「未着手」に変換し、「今日やる」を有効なステータスとして追加
+  try {
+    const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'").get() as { sql: string } | undefined
+    if (tableInfo?.sql.includes("'保留'")) {
+      db.exec(`
+        PRAGMA foreign_keys = OFF;
+        ALTER TABLE tasks RENAME TO _tasks_old;
+        CREATE TABLE tasks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          business TEXT NOT NULL,
+          level TEXT NOT NULL,
+          parent_id INTEGER,
+          name TEXT NOT NULL,
+          assignee TEXT,
+          deadline TEXT,
+          notes TEXT,
+          status TEXT DEFAULT '未着手',
+          sort_order INTEGER DEFAULT 0,
+          created_at TEXT DEFAULT (datetime('now', 'localtime')),
+          updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+        );
+        INSERT INTO tasks SELECT id, business, level, parent_id, name, assignee, deadline, notes,
+          CASE WHEN status = '保留' THEN '未着手' ELSE status END,
+          sort_order, created_at, updated_at FROM _tasks_old;
+        DROP TABLE _tasks_old;
+        PRAGMA foreign_keys = ON;
+      `)
+    }
+  } catch (e) {
+    console.error('Migration error:', e)
+  }
 }
 
 export function isSeeded(): boolean {

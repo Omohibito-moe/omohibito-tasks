@@ -1,4 +1,4 @@
-export type Status = '未着手' | '進行中' | '完了' | '保留'
+export type Status = '未着手' | '今日やる' | '進行中' | '完了'
 export type Level = '大タスク' | '中タスク' | '小タスク'
 export type Business = 'コンシェルジュ' | 'DX事業' | 'リスキリング' | 'ケアガイド' | '資金調達' | '集客戦略サマリー'
 
@@ -42,7 +42,7 @@ export const BUSINESSES: Business[] = [
   '集客戦略サマリー',
 ]
 
-export const STATUSES: Status[] = ['未着手', '進行中', '完了', '保留']
+export const STATUSES: Status[] = ['未着手', '今日やる', '進行中', '完了']
 
 export const BUSINESS_COLORS: Record<Business, string> = {
   'コンシェルジュ': '#5B8FB9',
@@ -64,9 +64,9 @@ export const BUSINESS_BG: Record<Business, string> = {
 
 export const STATUS_COLORS: Record<Status, string> = {
   '未着手': 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300',
+  '今日やる': 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300',
   '進行中': 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
   '完了': 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300',
-  '保留': 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
 }
 
 export const MONTHS = ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月']
