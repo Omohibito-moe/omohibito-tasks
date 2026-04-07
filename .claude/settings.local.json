@@ -14,7 +14,8 @@
       "Bash(done)",
       "Bash(npm cache:*)",
       "Bash(npm install:*)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(find /Users/moekaneko/taskmanagement/src -name seed*)"
     ]
   }
 }

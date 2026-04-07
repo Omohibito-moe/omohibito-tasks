@@ -14,8 +14,10 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Task, Status, Business } from '@/lib/types'
-import { BUSINESSES, STATUSES, BUSINESS_COLORS } from '@/lib/types'
+import { BUSINESSES, STATUSES, BUSINESS_COLORS, STATUS_COLORS } from '@/lib/types'
+import { TaskModal } from '@/components/TaskModal'
 
+type ViewMode = 'kanban' | 'tree' | 'today'
 type SortKey = 'default' | 'deadline' | 'level'
 const LEVEL_ORDER: Record<string, number> = { '大タスク': 0, '中タスク': 1, '小タスク': 2 }
 
@@ -35,15 +37,10 @@ function sortTasks(tasks: Task[], sortKey: SortKey, sortAsc: boolean): Task[] {
     return 0
   })
 }
-import { TaskModal } from '@/components/TaskModal'
 
-const COLUMNS: { status: Status; label: string; color: string }[] = [
-  { status: '未着手', label: '未着手', color: '#6B7280' },
-  { status: '進行中', label: '進行中', color: '#3B82F6' },
-  { status: '完了', label: '完了', color: '#10B981' },
-  { status: '保留', label: '保留', color: '#F59E0B' },
-]
-
+// ───────────────────────────────────────────────
+// カンバン用コンポーネント
+// ───────────────────────────────────────────────
 function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
@@ -82,9 +79,7 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
   )
 }
 
-function Column({
-  status, label, color, tasks, onEdit, onAdd,
-}: {
+function Column({ status, label, color, tasks, onEdit, onAdd }: {
   status: Status; label: string; color: string; tasks: Task[]
   onEdit: (t: Task) => void; onAdd: (s: Status) => void
 }) {
@@ -110,8 +105,164 @@ function Column({
   )
 }
 
+// ───────────────────────────────────────────────
+// ツリービュー
+// ───────────────────────────────────────────────
+function TreeView({ allTasks, onEdit }: { allTasks: Task[]; onEdit: (t: Task) => void }) {
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
+
+  const toggle = (id: number) =>
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
+  const bigTasks = allTasks.filter(t => t.level === '大タスク')
+  const midTasks = allTasks.filter(t => t.level === '中タスク')
+  const smallTasks = allTasks.filter(t => t.level === '小タスク')
+
+  return (
+    <div className="card overflow-hidden flex-1 overflow-y-auto">
+      {bigTasks.length === 0 && (
+        <p className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>タスクがありません</p>
+      )}
+      {bigTasks.map(big => {
+        const mids = midTasks.filter(m => m.parent_id === big.id)
+        const bigOpen = expandedIds.has(big.id)
+        const bizColor = BUSINESS_COLORS[big.business as keyof typeof BUSINESS_COLORS] ?? '#6B7280'
+        return (
+          <div key={big.id} style={{ borderBottom: '1px solid var(--border)' }}>
+            {/* 大タスク */}
+            <div
+              className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:opacity-80 select-none"
+              onClick={() => toggle(big.id)}
+              style={{ backgroundColor: 'rgba(0,0,0,0.03)' }}
+            >
+              <span className="text-xs w-4 text-center" style={{ color: 'var(--text-muted)' }}>{bigOpen ? '▼' : '▶'}</span>
+              <span className="text-xs px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: bizColor + '22', color: bizColor }}>大</span>
+              <span className="text-sm font-semibold flex-1" style={{ color: 'var(--text)' }}>{big.name}</span>
+              <span className={`status-badge ${STATUS_COLORS[big.status]}`}>{big.status}</span>
+              {big.deadline && <span className="text-xs font-medium" style={{ color: '#C9A96E' }}>{big.deadline}</span>}
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{mids.length}件</span>
+            </div>
+
+            {bigOpen && mids.map(mid => {
+              const smalls = smallTasks.filter(s => s.parent_id === mid.id)
+              const midOpen = expandedIds.has(mid.id)
+              return (
+                <div key={mid.id}>
+                  {/* 中タスク */}
+                  <div
+                    className="flex items-center gap-3 py-2.5 cursor-pointer hover:opacity-80 select-none"
+                    style={{ paddingLeft: '2.5rem', paddingRight: '1rem', borderTop: '1px solid var(--border)' }}
+                    onClick={() => toggle(mid.id)}
+                  >
+                    <span className="text-xs w-4 text-center" style={{ color: 'var(--text-muted)' }}>{midOpen ? '▼' : '▶'}</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: 'rgba(0,0,0,0.06)', color: 'var(--text-muted)' }}>中</span>
+                    <span className="text-sm flex-1" style={{ color: 'var(--text)' }}>{mid.name}</span>
+                    <span className={`status-badge ${STATUS_COLORS[mid.status]}`}>{mid.status}</span>
+                    {mid.deadline && <span className="text-xs font-medium" style={{ color: '#C9A96E' }}>{mid.deadline}</span>}
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{smalls.length}件</span>
+                  </div>
+
+                  {midOpen && smalls.map(small => (
+                    <div
+                      key={small.id}
+                      className="flex items-center gap-3 py-2 cursor-pointer hover:opacity-80"
+                      style={{ paddingLeft: '4.5rem', paddingRight: '1rem', borderTop: '1px solid var(--border)' }}
+                      onClick={() => onEdit(small)}
+                    >
+                      <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.04)', color: 'var(--text-muted)' }}>小</span>
+                      <span className="text-sm flex-1" style={{ color: 'var(--text)' }}>{small.name}</span>
+                      <span className={`status-badge ${STATUS_COLORS[small.status]}`}>{small.status}</span>
+                      {small.deadline && <span className="text-xs font-medium" style={{ color: '#C9A96E' }}>{small.deadline}</span>}
+                      {small.assignee && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{small.assignee}</span>}
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ───────────────────────────────────────────────
+// 今日のタスクビュー
+// ───────────────────────────────────────────────
+function TodayView({ onEdit, onStatusChange }: {
+  onEdit: (t: Task) => void
+  onStatusChange: (task: Task) => void
+}) {
+  const [inProgress, setInProgress] = useState<Task[]>([])
+  const [upcoming, setUpcoming] = useState<Task[]>([])
+
+  useEffect(() => {
+    fetch('/api/tasks?status=進行中').then(r => r.json()).then(setInProgress)
+    fetch('/api/tasks?level=小タスク&status=未着手').then(r => r.json()).then((data: Task[]) =>
+      setUpcoming(data.filter(t => t.deadline).slice(0, 20))
+    )
+  }, [])
+
+  const TaskRow = ({ task }: { task: Task }) => {
+    const bizColor = BUSINESS_COLORS[task.business as keyof typeof BUSINESS_COLORS] ?? '#6B7280'
+    return (
+      <div
+        className="flex items-center gap-3 py-2.5 cursor-pointer hover:opacity-80"
+        style={{ borderBottom: '1px solid var(--border)' }}
+        onClick={() => onEdit(task)}
+      >
+        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: bizColor }} />
+        <span className="text-sm flex-1" style={{ color: 'var(--text)' }}>{task.name}</span>
+        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{task.business}</span>
+        {task.deadline && <span className="text-xs font-medium" style={{ color: '#C9A96E' }}>{task.deadline}</span>}
+        <button
+          className={`status-badge ${STATUS_COLORS[task.status]}`}
+          onClick={e => { e.stopPropagation(); onStatusChange(task) }}
+        >
+          {task.status}
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto space-y-4">
+      <div className="card p-4">
+        <h2 className="text-sm font-bold mb-3" style={{ color: '#3B82F6' }}>● 進行中 ({inProgress.length})</h2>
+        {inProgress.length === 0
+          ? <p className="text-sm" style={{ color: 'var(--text-muted)' }}>なし</p>
+          : inProgress.map(t => <TaskRow key={t.id} task={t} />)
+        }
+      </div>
+      <div className="card p-4">
+        <h2 className="text-sm font-bold mb-3" style={{ color: 'var(--text-muted)' }}>未着手（期限あり）</h2>
+        {upcoming.length === 0
+          ? <p className="text-sm" style={{ color: 'var(--text-muted)' }}>なし</p>
+          : upcoming.map(t => <TaskRow key={t.id} task={t} />)
+        }
+      </div>
+    </div>
+  )
+}
+
+// ───────────────────────────────────────────────
+// メインページ
+// ───────────────────────────────────────────────
+const COLUMNS: { status: Status; label: string; color: string }[] = [
+  { status: '未着手', label: '未着手', color: '#6B7280' },
+  { status: '進行中', label: '進行中', color: '#3B82F6' },
+  { status: '完了', label: '完了', color: '#10B981' },
+  { status: '保留', label: '保留', color: '#F59E0B' },
+]
+
 export default function KanbanPage() {
+  const [viewMode, setViewMode] = useState<ViewMode>('kanban')
   const [tasks, setTasks] = useState<Task[]>([])
+  const [allTasks, setAllTasks] = useState<Task[]>([])
   const [filterBiz, setFilterBiz] = useState<Business | ''>('')
   const [sortKey, setSortKey] = useState<SortKey>('default')
   const [sortAsc, setSortAsc] = useState(true)
@@ -128,7 +279,15 @@ export default function KanbanPage() {
     setTasks(await res.json())
   }, [filterBiz])
 
+  const fetchAllTasks = useCallback(async () => {
+    const params = new URLSearchParams()
+    if (filterBiz) params.set('business', filterBiz)
+    const res = await fetch(`/api/tasks?${params}`)
+    setAllTasks(await res.json())
+  }, [filterBiz])
+
   useEffect(() => { fetchTasks() }, [fetchTasks])
+  useEffect(() => { if (viewMode === 'tree') fetchAllTasks() }, [viewMode, fetchAllTasks])
 
   const handleDragStart = (e: DragStartEvent) => setDraggingId(e.active.id as number)
 
@@ -172,47 +331,99 @@ export default function KanbanPage() {
       })
     }
     setModalTask(null)
-    await fetchTasks()
+    fetchTasks()
+    if (viewMode === 'tree') fetchAllTasks()
+  }
+
+  const handleStatusChange = async (task: Task) => {
+    const idx = STATUSES.indexOf(task.status)
+    const next = STATUSES[(idx + 1) % STATUSES.length]
+    await fetch(`/api/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: next }),
+    })
+    fetchTasks()
   }
 
   const draggingTask = draggingId ? tasks.find(t => t.id === draggingId) : null
 
+  const btnStyle = (active: boolean) => ({
+    backgroundColor: active ? '#1F4E79' : 'var(--bg-card)',
+    color: active ? '#fff' : 'var(--text)',
+    borderColor: active ? '#1F4E79' : 'var(--border)',
+  })
+
   return (
     <div className="h-full flex flex-col gap-4">
+      {/* ヘッダー */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold wa-border pl-3" style={{ color: 'var(--text)' }}>カンバン</h1>
-          <p className="text-sm mt-0.5 pl-3" style={{ color: 'var(--text-muted)' }}>ドラッグ&ドロップでステータスを変更</p>
+          <p className="text-sm mt-0.5 pl-3" style={{ color: 'var(--text-muted)' }}>
+            {viewMode === 'kanban' ? 'ドラッグ&ドロップでステータスを変更' : viewMode === 'tree' ? '大→中→小 タスク階層' : '進行中・期限ありタスク'}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <select
-            value={filterBiz}
-            onChange={e => setFilterBiz(e.target.value as Business | '')}
-            className="px-3 py-1.5 rounded-lg border text-sm"
-            style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
-          >
-            <option value="">すべての事業</option>
-            {BUSINESSES.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-          <select
-            value={sortKey}
-            onChange={e => setSortKey(e.target.value as SortKey)}
-            className="px-3 py-1.5 rounded-lg border text-sm"
-            style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
-          >
-            <option value="default">並び順：デフォルト</option>
-            <option value="deadline">並び順：期限</option>
-            <option value="level">並び順：レベル</option>
-          </select>
-          {sortKey !== 'default' && (
-            <button
-              onClick={() => setSortAsc(a => !a)}
-              className="px-2 py-1.5 rounded-lg border text-sm"
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* ビュー切り替え */}
+          <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+            {(['kanban', 'tree', 'today'] as ViewMode[]).map(m => (
+              <button
+                key={m}
+                onClick={() => setViewMode(m)}
+                className="px-3 py-1.5 text-sm border-0"
+                style={btnStyle(viewMode === m)}
+              >
+                {m === 'kanban' ? '⊡ カンバン' : m === 'tree' ? '▤ ツリー' : '★ 今日'}
+              </button>
+            ))}
+          </div>
+
+          {viewMode === 'kanban' && (
+            <>
+              <select
+                value={filterBiz}
+                onChange={e => setFilterBiz(e.target.value as Business | '')}
+                className="px-3 py-1.5 rounded-lg border text-sm"
+                style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
+              >
+                <option value="">すべての事業</option>
+                {BUSINESSES.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+              <select
+                value={sortKey}
+                onChange={e => setSortKey(e.target.value as SortKey)}
+                className="px-3 py-1.5 rounded-lg border text-sm"
+                style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
+              >
+                <option value="default">並び順：デフォルト</option>
+                <option value="deadline">並び順：期限</option>
+                <option value="level">並び順：レベル</option>
+              </select>
+              {sortKey !== 'default' && (
+                <button
+                  onClick={() => setSortAsc(a => !a)}
+                  className="px-2 py-1.5 rounded-lg border text-sm"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
+                >
+                  {sortAsc ? '↑ 昇順' : '↓ 降順'}
+                </button>
+              )}
+            </>
+          )}
+
+          {viewMode === 'tree' && (
+            <select
+              value={filterBiz}
+              onChange={e => { setFilterBiz(e.target.value as Business | ''); fetchAllTasks() }}
+              className="px-3 py-1.5 rounded-lg border text-sm"
               style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
             >
-              {sortAsc ? '↑ 昇順' : '↓ 降順'}
-            </button>
+              <option value="">すべての事業</option>
+              {BUSINESSES.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
           )}
+
           <button
             onClick={() => { setModalTask({}); setAddStatus('未着手') }}
             className="px-3 py-1.5 rounded-lg text-sm font-medium text-white"
@@ -223,26 +434,39 @@ export default function KanbanPage() {
         </div>
       </div>
 
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
-          {COLUMNS.map(col => (
-            <Column
-              key={col.status}
-              {...col}
-              tasks={sortTasks(tasks.filter(t => t.status === col.status), sortKey, sortAsc)}
-              onEdit={t => setModalTask(t)}
-              onAdd={s => { setModalTask({}); setAddStatus(s) }}
-            />
-          ))}
-        </div>
-        <DragOverlay>
-          {draggingTask && (
-            <div className="card p-3 shadow-2xl rotate-2">
-              <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{draggingTask.name}</p>
-            </div>
-          )}
-        </DragOverlay>
-      </DndContext>
+      {/* カンバンビュー */}
+      {viewMode === 'kanban' && (
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
+            {COLUMNS.map(col => (
+              <Column
+                key={col.status}
+                {...col}
+                tasks={sortTasks(tasks.filter(t => t.status === col.status), sortKey, sortAsc)}
+                onEdit={t => setModalTask(t)}
+                onAdd={s => { setModalTask({}); setAddStatus(s) }}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {draggingTask && (
+              <div className="card p-3 shadow-2xl rotate-2">
+                <p className="text-sm font-medium" style={{ color: 'var(--text)' }}>{draggingTask.name}</p>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
+      )}
+
+      {/* ツリービュー */}
+      {viewMode === 'tree' && (
+        <TreeView allTasks={allTasks} onEdit={t => setModalTask(t)} />
+      )}
+
+      {/* 今日のタスク */}
+      {viewMode === 'today' && (
+        <TodayView onEdit={t => setModalTask(t)} onStatusChange={handleStatusChange} />
+      )}
 
       {modalTask && (
         <TaskModal

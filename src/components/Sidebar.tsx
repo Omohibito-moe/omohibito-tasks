@@ -6,7 +6,6 @@ import { useTheme } from './ThemeProvider'
 
 const NAV = [
   { href: '/', label: 'ダッシュボード', icon: '⊞' },
-  { href: '/today', label: '今日のタスク', icon: '★' },
   { href: '/kanban', label: 'カンバン', icon: '⊡' },
   { href: '/timeline', label: 'タイムライン', icon: '▤' },
   { href: '/list', label: 'リスト', icon: '≡' },
