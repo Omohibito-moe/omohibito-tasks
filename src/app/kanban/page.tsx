@@ -7,6 +7,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core'
@@ -87,6 +88,7 @@ function Column({
   status: Status; label: string; color: string; tasks: Task[]
   onEdit: (t: Task) => void; onAdd: (s: Status) => void
 }) {
+  const { setNodeRef: setDropRef } = useDroppable({ id: status })
   return (
     <div className="kanban-col flex flex-col">
       <div className="flex items-center justify-between mb-3 px-1">
@@ -100,7 +102,7 @@ function Column({
         <button onClick={() => onAdd(status)} className="text-xs px-2 py-0.5 rounded hover:opacity-80" style={{ backgroundColor: color + '22', color }}>＋</button>
       </div>
       <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 flex flex-col gap-2 p-2 rounded-xl min-h-[200px]" style={{ backgroundColor: 'rgba(0,0,0,0.04)' }}>
+        <div ref={setDropRef} className="flex-1 flex flex-col gap-2 p-2 rounded-xl min-h-[200px]" style={{ backgroundColor: 'rgba(0,0,0,0.04)' }}>
           {tasks.map(task => <TaskCard key={task.id} task={task} onEdit={onEdit} />)}
         </div>
       </SortableContext>
@@ -133,16 +135,25 @@ export default function KanbanPage() {
   const handleDragEnd = async (e: DragEndEvent) => {
     setDraggingId(null)
     const { active, over } = e
-    if (!over || active.id === over.id) return
-    const targetTask = tasks.find(t => t.id === over.id)
-    if (!targetTask) return
+    if (!over) return
     const dragging = tasks.find(t => t.id === active.id)
-    if (!dragging || dragging.status === targetTask.status) return
-    setTasks(prev => prev.map(t => t.id === active.id ? { ...t, status: targetTask.status } : t))
+    if (!dragging) return
+
+    let targetStatus: Status
+    if (STATUSES.includes(over.id as Status)) {
+      targetStatus = over.id as Status
+    } else {
+      const targetTask = tasks.find(t => t.id === over.id)
+      if (!targetTask) return
+      targetStatus = targetTask.status
+    }
+
+    if (dragging.status === targetStatus) return
+    setTasks(prev => prev.map(t => t.id === active.id ? { ...t, status: targetStatus } : t))
     await fetch(`/api/tasks/${active.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: targetTask.status }),
+      body: JSON.stringify({ status: targetStatus }),
     })
   }
 

@@ -6,6 +6,7 @@ import { BUSINESSES, STATUSES, BUSINESS_COLORS, STATUS_COLORS } from '@/lib/type
 import { TaskModal } from '@/components/TaskModal'
 
 type SortKey = 'business' | 'deadline' | 'assignee' | 'status' | 'name'
+type ViewMode = 'table' | 'tree'
 
 function StatusBadge({ status }: { status: Status }) {
   return <span className={`status-badge ${STATUS_COLORS[status]}`}>{status}</span>
@@ -20,8 +21,114 @@ function BizBadge({ business }: { business: string }) {
   )
 }
 
+function TreeView({
+  allTasks,
+  onEdit,
+}: {
+  allTasks: Task[]
+  onEdit: (t: Task) => void
+}) {
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
+
+  const toggle = (id: number) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const bigTasks = allTasks.filter(t => t.level === '大タスク')
+  const midTasks = allTasks.filter(t => t.level === '中タスク')
+  const smallTasks = allTasks.filter(t => t.level === '小タスク')
+
+  return (
+    <div className="card overflow-hidden">
+      {bigTasks.length === 0 && (
+        <p className="p-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>タスクが見つかりません</p>
+      )}
+      {bigTasks.map(big => {
+        const children = midTasks.filter(m => m.parent_id === big.id)
+        const bigExpanded = expandedIds.has(big.id)
+        return (
+          <div key={big.id} style={{ borderBottom: '1px solid var(--border)' }}>
+            {/* 大タスク行 */}
+            <div
+              className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:opacity-80 transition-opacity select-none"
+              onClick={() => toggle(big.id)}
+              style={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
+            >
+              <span className="text-xs font-bold w-4" style={{ color: 'var(--text-muted)' }}>
+                {bigExpanded ? '▼' : '▶'}
+              </span>
+              <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: 'rgba(0,0,0,0.08)', color: 'var(--text-muted)' }}>大</span>
+              <span className="text-sm font-semibold flex-1" style={{ color: 'var(--text)' }}>{big.name}</span>
+              <BizBadge business={big.business} />
+              <StatusBadge status={big.status} />
+              {big.deadline && (
+                <span className="text-xs font-medium" style={{ color: '#C9A96E' }}>{big.deadline}</span>
+              )}
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{children.length}件</span>
+            </div>
+
+            {/* 中タスク */}
+            {bigExpanded && children.map(mid => {
+              const leaves = smallTasks.filter(s => s.parent_id === mid.id)
+              const midExpanded = expandedIds.has(mid.id)
+              return (
+                <div key={mid.id}>
+                  <div
+                    className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:opacity-80 transition-opacity select-none"
+                    style={{ paddingLeft: '2.5rem', borderTop: '1px solid var(--border)' }}
+                    onClick={() => toggle(mid.id)}
+                  >
+                    <span className="text-xs font-bold w-4" style={{ color: 'var(--text-muted)' }}>
+                      {midExpanded ? '▼' : '▶'}
+                    </span>
+                    <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: 'rgba(0,0,0,0.06)', color: 'var(--text-muted)' }}>中</span>
+                    <span className="text-sm flex-1" style={{ color: 'var(--text)' }}>{mid.name}</span>
+                    <BizBadge business={mid.business} />
+                    <StatusBadge status={mid.status} />
+                    {mid.deadline && (
+                      <span className="text-xs font-medium" style={{ color: '#C9A96E' }}>{mid.deadline}</span>
+                    )}
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{leaves.length}件</span>
+                  </div>
+
+                  {/* 小タスク */}
+                  {midExpanded && leaves.map(small => (
+                    <div
+                      key={small.id}
+                      className="flex items-center gap-3 py-2 cursor-pointer hover:opacity-80 transition-opacity"
+                      style={{ paddingLeft: '4.5rem', paddingRight: '1rem', borderTop: '1px solid var(--border)' }}
+                      onClick={() => onEdit(small)}
+                    >
+                      <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: 'rgba(0,0,0,0.04)', color: 'var(--text-muted)' }}>小</span>
+                      <span className="text-sm flex-1" style={{ color: 'var(--text)' }}>{small.name}</span>
+                      <BizBadge business={small.business} />
+                      <StatusBadge status={small.status} />
+                      {small.deadline && (
+                        <span className="text-xs font-medium" style={{ color: '#C9A96E' }}>{small.deadline}</span>
+                      )}
+                      {small.assignee && (
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{small.assignee}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function ListPage() {
   const [tasks, setTasks] = useState<Task[]>([])
+  const [allTasks, setAllTasks] = useState<Task[]>([])
   const [filterBiz, setFilterBiz] = useState<Business | ''>('')
   const [filterStatus, setFilterStatus] = useState<Status | ''>('')
   const [filterLevel, setFilterLevel] = useState<Level | ''>('')
@@ -30,6 +137,7 @@ export default function ListPage() {
   const [sortAsc, setSortAsc] = useState(true)
   const [modalTask, setModalTask] = useState<Partial<Task> | null>(null)
   const [search, setSearch] = useState('')
+  const [viewMode, setViewMode] = useState<ViewMode>('table')
 
   const fetchTasks = useCallback(async () => {
     const params = new URLSearchParams()
@@ -41,7 +149,13 @@ export default function ListPage() {
     setTasks(await res.json())
   }, [filterBiz, filterStatus, filterLevel, filterAssignee])
 
+  const fetchAllTasks = useCallback(async () => {
+    const res = await fetch('/api/tasks')
+    setAllTasks(await res.json())
+  }, [])
+
   useEffect(() => { fetchTasks() }, [fetchTasks])
+  useEffect(() => { if (viewMode === 'tree') fetchAllTasks() }, [viewMode, fetchAllTasks])
 
   const handleSave = async (data: Partial<Task>) => {
     if (data.id) {
@@ -59,6 +173,7 @@ export default function ListPage() {
     }
     setModalTask(null)
     await fetchTasks()
+    if (viewMode === 'tree') await fetchAllTasks()
   }
 
   const handleDelete = async (id: number) => {
@@ -66,6 +181,7 @@ export default function ListPage() {
     await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
     setModalTask(null)
     await fetchTasks()
+    if (viewMode === 'tree') await fetchAllTasks()
   }
 
   const handleStatusClick = async (task: Task) => {
@@ -101,141 +217,176 @@ export default function ListPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold wa-border pl-3" style={{ color: 'var(--text)' }}>タスクリスト</h1>
-          <p className="text-sm mt-0.5 pl-3" style={{ color: 'var(--text-muted)' }}>全タスク一覧 — {sorted.length} 件</p>
+          <p className="text-sm mt-0.5 pl-3" style={{ color: 'var(--text-muted)' }}>
+            {viewMode === 'table' ? `全タスク一覧 — ${sorted.length} 件` : 'ツリービュー'}
+          </p>
         </div>
-        <button
-          onClick={() => setModalTask({})}
-          className="px-3 py-1.5 rounded-lg text-sm font-medium text-white"
-          style={{ backgroundColor: '#1F4E79' }}
-        >
-          ＋ タスク追加
-        </button>
+        <div className="flex items-center gap-3">
+          {/* View mode toggle */}
+          <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+            <button
+              onClick={() => setViewMode('table')}
+              className="px-3 py-1.5 text-sm transition-colors"
+              style={{
+                backgroundColor: viewMode === 'table' ? '#1F4E79' : 'var(--bg-card)',
+                color: viewMode === 'table' ? '#fff' : 'var(--text)',
+              }}
+            >
+              テーブル
+            </button>
+            <button
+              onClick={() => setViewMode('tree')}
+              className="px-3 py-1.5 text-sm transition-colors"
+              style={{
+                backgroundColor: viewMode === 'tree' ? '#1F4E79' : 'var(--bg-card)',
+                color: viewMode === 'tree' ? '#fff' : 'var(--text)',
+              }}
+            >
+              ツリー
+            </button>
+          </div>
+          <button
+            onClick={() => setModalTask({})}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium text-white"
+            style={{ backgroundColor: '#1F4E79' }}
+          >
+            ＋ タスク追加
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="card p-3 flex flex-wrap gap-3 items-center">
-        <input
-          type="text"
-          placeholder="タスク名・担当で検索"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="px-3 py-1.5 rounded-lg border text-sm flex-1 min-w-40 bg-transparent"
-          style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-        />
-        <select
-          value={filterBiz}
-          onChange={e => setFilterBiz(e.target.value as Business | '')}
-          className="px-2 py-1.5 rounded-lg border text-sm"
-          style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
-        >
-          <option value="">事業：すべて</option>
-          {BUSINESSES.map(b => <option key={b} value={b}>{b}</option>)}
-        </select>
-        <select
-          value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value as Status | '')}
-          className="px-2 py-1.5 rounded-lg border text-sm"
-          style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
-        >
-          <option value="">ステータス：すべて</option>
-          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select
-          value={filterLevel}
-          onChange={e => setFilterLevel(e.target.value as Level | '')}
-          className="px-2 py-1.5 rounded-lg border text-sm"
-          style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
-        >
-          <option value="">レベル：すべて</option>
-          <option value="大タスク">大タスク</option>
-          <option value="中タスク">中タスク</option>
-          <option value="小タスク">小タスク</option>
-        </select>
-        <button
-          onClick={() => { setFilterBiz(''); setFilterStatus(''); setFilterLevel(''); setFilterAssignee(''); setSearch('') }}
-          className="px-2 py-1.5 rounded-lg border text-xs"
-          style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
-        >
-          リセット
-        </button>
-      </div>
+      {viewMode === 'table' && (
+        <>
+          {/* Filters */}
+          <div className="card p-3 flex flex-wrap gap-3 items-center">
+            <input
+              type="text"
+              placeholder="タスク名・担当で検索"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="px-3 py-1.5 rounded-lg border text-sm flex-1 min-w-40 bg-transparent"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+            />
+            <select
+              value={filterBiz}
+              onChange={e => setFilterBiz(e.target.value as Business | '')}
+              className="px-2 py-1.5 rounded-lg border text-sm"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
+            >
+              <option value="">事業：すべて</option>
+              {BUSINESSES.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value as Status | '')}
+              className="px-2 py-1.5 rounded-lg border text-sm"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
+            >
+              <option value="">ステータス：すべて</option>
+              {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select
+              value={filterLevel}
+              onChange={e => setFilterLevel(e.target.value as Level | '')}
+              className="px-2 py-1.5 rounded-lg border text-sm"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
+            >
+              <option value="">レベル：すべて</option>
+              <option value="大タスク">大タスク</option>
+              <option value="中タスク">中タスク</option>
+              <option value="小タスク">小タスク</option>
+            </select>
+            <button
+              onClick={() => { setFilterBiz(''); setFilterStatus(''); setFilterLevel(''); setFilterAssignee(''); setSearch('') }}
+              className="px-2 py-1.5 rounded-lg border text-xs"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+            >
+              リセット
+            </button>
+          </div>
 
-      {/* Table */}
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr style={{ borderBottom: '2px solid var(--border)' }}>
-              {([['name', 'タスク名'], ['business', '事業'], ['assignee', '担当'], ['deadline', '期限'], ['status', 'ステータス']] as [SortKey, string][]).map(([k, label]) => (
-                <th
-                  key={k}
-                  className="py-3 px-3 text-left font-semibold text-xs uppercase tracking-wide cursor-pointer hover:opacity-70 transition-opacity select-none"
-                  style={{ color: 'var(--text-muted)' }}
-                  onClick={() => handleSort(k)}
-                >
-                  {label}<SortIcon k={k} />
-                </th>
-              ))}
-              <th className="py-3 px-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map(task => (
-              <tr
-                key={task.id}
-                className="hover:opacity-80 transition-opacity"
-                style={{ borderBottom: '1px solid var(--border)' }}
-              >
-                <td className="py-2.5 px-3" style={{ color: 'var(--text)', maxWidth: '400px' }}>
-                  <div>
-                    <span className="text-xs font-medium mr-2" style={{ color: 'var(--text-muted)' }}>
-                      {task.level === '大タスク' ? '━' : task.level === '中タスク' ? '┣' : '┗'}
-                    </span>
-                    {task.name}
-                  </div>
-                  {task.notes && (
-                    <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>{task.notes}</p>
-                  )}
-                </td>
-                <td className="py-2.5 px-3"><BizBadge business={task.business} /></td>
-                <td className="py-2.5 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{task.assignee ?? '—'}</td>
-                <td className="py-2.5 px-3 text-xs font-medium" style={{ color: task.deadline ? '#C9A96E' : 'var(--text-muted)' }}>
-                  {task.deadline ?? '—'}
-                </td>
-                <td className="py-2.5 px-3">
-                  <button onClick={() => handleStatusClick(task)} className="hover:scale-105 transition-transform">
-                    <StatusBadge status={task.status} />
-                  </button>
-                </td>
-                <td className="py-2.5 px-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setModalTask(task)}
-                      className="text-xs px-2 py-0.5 rounded border hover:opacity-70"
-                      style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+          {/* Table */}
+          <div className="card overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                  {([['name', 'タスク名'], ['business', '事業'], ['assignee', '担当'], ['deadline', '期限'], ['status', 'ステータス']] as [SortKey, string][]).map(([k, label]) => (
+                    <th
+                      key={k}
+                      className="py-3 px-3 text-left font-semibold text-xs uppercase tracking-wide cursor-pointer hover:opacity-70 transition-opacity select-none"
+                      style={{ color: 'var(--text-muted)' }}
+                      onClick={() => handleSort(k)}
                     >
-                      編集
-                    </button>
-                    <button
-                      onClick={() => handleDelete(task.id)}
-                      className="text-xs px-2 py-0.5 rounded border hover:opacity-70"
-                      style={{ borderColor: '#dc262640', color: '#dc2626' }}
-                    >
-                      削除
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {sorted.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-12 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-                  タスクが見つかりません
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                      {label}<SortIcon k={k} />
+                    </th>
+                  ))}
+                  <th className="py-3 px-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map(task => (
+                  <tr
+                    key={task.id}
+                    className="hover:opacity-80 transition-opacity"
+                    style={{ borderBottom: '1px solid var(--border)' }}
+                  >
+                    <td className="py-2.5 px-3" style={{ color: 'var(--text)', maxWidth: '400px' }}>
+                      <div>
+                        <span className="text-xs font-medium mr-2" style={{ color: 'var(--text-muted)' }}>
+                          {task.level === '大タスク' ? '━' : task.level === '中タスク' ? '┣' : '┗'}
+                        </span>
+                        {task.name}
+                      </div>
+                      {task.notes && (
+                        <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>{task.notes}</p>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-3"><BizBadge business={task.business} /></td>
+                    <td className="py-2.5 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>{task.assignee ?? '—'}</td>
+                    <td className="py-2.5 px-3 text-xs font-medium" style={{ color: task.deadline ? '#C9A96E' : 'var(--text-muted)' }}>
+                      {task.deadline ?? '—'}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <button onClick={() => handleStatusClick(task)} className="hover:scale-105 transition-transform">
+                        <StatusBadge status={task.status} />
+                      </button>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setModalTask(task)}
+                          className="text-xs px-2 py-0.5 rounded border hover:opacity-70"
+                          style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+                        >
+                          編集
+                        </button>
+                        <button
+                          onClick={() => handleDelete(task.id)}
+                          className="text-xs px-2 py-0.5 rounded border hover:opacity-70"
+                          style={{ borderColor: '#dc262640', color: '#dc2626' }}
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {sorted.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                      タスクが見つかりません
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {viewMode === 'tree' && (
+        <TreeView allTasks={allTasks} onEdit={t => setModalTask(t)} />
+      )}
 
       {modalTask && (
         <TaskModal
