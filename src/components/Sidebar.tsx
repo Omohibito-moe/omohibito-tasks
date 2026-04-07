@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from './ThemeProvider'
+import { useState } from 'react'
+import { ImportModal } from './ImportModal'
 
 const NAV = [
   { href: '/', label: 'ダッシュボード', icon: '⊞' },
@@ -14,6 +16,7 @@ const NAV = [
 export function Sidebar() {
   const pathname = usePathname()
   const { theme, toggle } = useTheme()
+  const [showImport, setShowImport] = useState(false)
 
   return (
     <aside
@@ -51,7 +54,14 @@ export function Sidebar() {
       </nav>
 
       {/* Bottom controls */}
-      <div className="mt-auto pt-4 border-t border-white/10 px-1">
+      <div className="mt-auto pt-4 border-t border-white/10 px-1 space-y-1">
+        <button
+          onClick={() => setShowImport(true)}
+          className="sidebar-item w-full justify-start"
+        >
+          <span>⊕</span>
+          <span>一括インポート</span>
+        </button>
         <button
           onClick={toggle}
           className="sidebar-item w-full justify-start"
@@ -60,6 +70,13 @@ export function Sidebar() {
           <span>{theme === 'dark' ? 'ライトモード' : 'ダークモード'}</span>
         </button>
       </div>
+
+      {showImport && (
+        <ImportModal
+          onClose={() => setShowImport(false)}
+          onDone={() => setShowImport(false)}
+        />
+      )}
     </aside>
   )
 }
