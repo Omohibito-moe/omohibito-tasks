@@ -14,6 +14,26 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import type { Task, Status, Business } from '@/lib/types'
 import { BUSINESSES, STATUSES, BUSINESS_COLORS } from '@/lib/types'
+
+type SortKey = 'default' | 'deadline' | 'level'
+const LEVEL_ORDER: Record<string, number> = { '大タスク': 0, '中タスク': 1, '小タスク': 2 }
+
+function sortTasks(tasks: Task[], sortKey: SortKey, sortAsc: boolean): Task[] {
+  if (sortKey === 'default') return tasks
+  return [...tasks].sort((a, b) => {
+    if (sortKey === 'deadline') {
+      const da = a.deadline ?? '9999'
+      const db = b.deadline ?? '9999'
+      return sortAsc ? da.localeCompare(db) : db.localeCompare(da)
+    }
+    if (sortKey === 'level') {
+      const la = LEVEL_ORDER[a.level] ?? 3
+      const lb = LEVEL_ORDER[b.level] ?? 3
+      return sortAsc ? la - lb : lb - la
+    }
+    return 0
+  })
+}
 import { TaskModal } from '@/components/TaskModal'
 
 const COLUMNS: { status: Status; label: string; color: string }[] = [
@@ -43,6 +63,9 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (t: Task) => void }) {
       <div className="flex items-center gap-2 flex-wrap">
         <span className="business-badge" style={{ backgroundColor: bizColor + '22', color: bizColor }}>
           {task.business}
+        </span>
+        <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.06)', color: 'var(--text-muted)' }}>
+          {task.level === '大タスク' ? '大' : task.level === '中タスク' ? '中' : '小'}
         </span>
         {task.assignee && (
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{task.assignee}</span>
@@ -88,6 +111,8 @@ function Column({
 export default function KanbanPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [filterBiz, setFilterBiz] = useState<Business | ''>('')
+  const [sortKey, setSortKey] = useState<SortKey>('default')
+  const [sortAsc, setSortAsc] = useState(true)
   const [draggingId, setDraggingId] = useState<number | null>(null)
   const [modalTask, setModalTask] = useState<Partial<Task> | null>(null)
   const [addStatus, setAddStatus] = useState<Status>('未着手')
@@ -158,6 +183,25 @@ export default function KanbanPage() {
             <option value="">すべての事業</option>
             {BUSINESSES.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
+          <select
+            value={sortKey}
+            onChange={e => setSortKey(e.target.value as SortKey)}
+            className="px-3 py-1.5 rounded-lg border text-sm"
+            style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
+          >
+            <option value="default">並び順：デフォルト</option>
+            <option value="deadline">並び順：期限</option>
+            <option value="level">並び順：レベル</option>
+          </select>
+          {sortKey !== 'default' && (
+            <button
+              onClick={() => setSortAsc(a => !a)}
+              className="px-2 py-1.5 rounded-lg border text-sm"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)', backgroundColor: 'var(--bg-card)' }}
+            >
+              {sortAsc ? '↑ 昇順' : '↓ 降順'}
+            </button>
+          )}
           <button
             onClick={() => { setModalTask({}); setAddStatus('未着手') }}
             className="px-3 py-1.5 rounded-lg text-sm font-medium text-white"
@@ -174,7 +218,7 @@ export default function KanbanPage() {
             <Column
               key={col.status}
               {...col}
-              tasks={tasks.filter(t => t.status === col.status)}
+              tasks={sortTasks(tasks.filter(t => t.status === col.status), sortKey, sortAsc)}
               onEdit={t => setModalTask(t)}
               onAdd={s => { setModalTask({}); setAddStatus(s) }}
             />
