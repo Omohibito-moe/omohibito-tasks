@@ -177,7 +177,6 @@ export default function ListPage() {
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('このタスクを削除しますか？')) return
     await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
     setModalTask(null)
     await fetchTasks()
@@ -394,6 +393,7 @@ export default function ListPage() {
           defaultBusiness={(filterBiz as Business) || 'コンシェルジュ'}
           onClose={() => setModalTask(null)}
           onSave={handleSave}
+          onDelete={id => handleDelete(id)}
         />
       )}
     </div>

@@ -324,6 +324,13 @@ export default function KanbanPage() {
     }
   }
 
+  const handleDelete = async (id: number) => {
+    await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+    setModalTask(null)
+    fetchTasks()
+    if (viewMode === 'tree') fetchAllTasks()
+  }
+
   const handleSave = async (data: Partial<Task>) => {
     if (data.id) {
       await fetch(`/api/tasks/${data.id}`, {
@@ -488,6 +495,7 @@ export default function KanbanPage() {
           defaultBusiness={(filterBiz as Business) || 'コンシェルジュ'}
           onClose={() => setModalTask(null)}
           onSave={handleSave}
+          onDelete={handleDelete}
         />
       )}
     </div>
