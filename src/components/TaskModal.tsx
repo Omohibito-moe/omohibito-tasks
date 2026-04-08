@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Task, Business, Level, Status } from '@/lib/types'
 import { BUSINESSES, STATUSES } from '@/lib/types'
 
@@ -26,6 +26,14 @@ export function TaskModal({ task, defaultBusiness, onClose, onSave, onDelete }: 
   })
   const [parentCandidates, setParentCandidates] = useState<Task[]>([])
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const datePickerRef = useRef<HTMLInputElement>(null)
+
+  // カレンダーで選んだ日付を「M/D」形式に変換
+  const handleDatePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.value) return
+    const [, m, d] = e.target.value.split('-')
+    set('deadline', `${Number(m)}/${Number(d)}`)
+  }
 
   // Escキーで閉じる
   useEffect(() => {
@@ -153,14 +161,31 @@ export function TaskModal({ task, defaultBusiness, onClose, onSave, onDelete }: 
             </div>
             <div>
               <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>期限</label>
-              <input
-                type="text"
-                value={form.deadline ?? ''}
-                onChange={e => set('deadline', e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border text-sm bg-transparent"
-                style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
-                placeholder="4月中"
-              />
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  value={form.deadline ?? ''}
+                  onChange={e => set('deadline', e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-lg border text-sm bg-transparent"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text)' }}
+                  placeholder="4月中"
+                />
+                <button
+                  type="button"
+                  onClick={() => datePickerRef.current?.showPicker()}
+                  className="px-2 py-2 rounded-lg border text-base"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text-muted)', backgroundColor: 'var(--bg-card)' }}
+                  title="カレンダーから選択"
+                >
+                  📅
+                </button>
+                <input
+                  ref={datePickerRef}
+                  type="date"
+                  className="sr-only"
+                  onChange={handleDatePick}
+                />
+              </div>
             </div>
           </div>
 
